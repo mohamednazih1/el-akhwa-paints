@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="author" content="Mohamed Nazih">
+    <title>مؤسسة الأخوة - (Mohamed Nazih)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+        body { font-family: 'Cairo', sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 0; }
+        
+        #productDetailsModal { position: fixed; inset: 0; background: #f1f5f9; z-index: 9999; display: none; overflow-y: auto; color: #1e293b; }
+        .product-gallery { background: #fff; position: relative; width: 100%; height: 400px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .image-slider { display: flex; overflow-x: auto; snap-type: x mandatory; scrollbar-width: none; width: 100%; height: 100%; }
+        .image-slider img { snap-align: center; flex-shrink: 0; width: 100%; height: 100%; object-fit: contain; }
+        
+        .product-info-card { background: #fff; margin: 12px; padding: 20px; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .price-tag { font-size: 28px; font-weight: 900; color: #059669; }
+        
+        .action-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 15px 20px; display: flex; gap: 12px; border-top: 1px solid #e2e8f0; z-index: 100; }
+        
+        #sidebar { position: fixed; top: 0; right: -100%; width: 300px; height: 100%; background: #0f172a; z-index: 2000; transition: 0.4s; border-left: 2px solid #fbbf24; overflow-y: auto; }
+        #sidebar.active { right: 0; }
+        .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1999; display: none; }
+        .sidebar-overlay.active { display: block; }
+        
+        .user-product-card { background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; }
+        .cart-badge { position: absolute; top: -5px; left: -5px; background: #ef4444; color: white; font-size: 10px; padding: 2px 6px; border-radius: 50%; font-weight: bold; }
+        #cartModal, #customerFormModal { position: fixed; inset: 0; background: #0f172a; z-index: 10000; display: none; overflow-y: auto; }
+        
+        .sub-menu { background: #16213e; margin-top: 5px; border-radius: 8px; display: none; }
+        .sub-menu.active { display: block; }
+        .no-save { pointer-events: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+        
+        .admin-item { background: #f8fafc; padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <header class="bg-black border-b-2 border-yellow-500 sticky top-0 z-[1000] px-4 py-3">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="bg-yellow-500 text-black w-9 h-9 rounded-lg flex items-center justify-center"><i class="fas fa-bars"></i></button>
+                <div onclick="accessAdmin()" class="cursor-pointer text-white italic text-md">
+                    <h1>مؤسسة <span class="text-yellow-500 font-black">الأخوة</span></h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="openCustomerForm()" class="flex flex-col items-center text-gray-400 hover:text-yellow-500 transition">
+                    <i class="fas fa-user-circle text-xl"></i>
+                    <span class="text-[9px] font-bold">بياناتي</span>
+                </button>
+                <button onclick="openCart()" class="relative flex flex-col items-center text-gray-400 hover:text-yellow-500 transition">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cartCount" class="cart-badge">0</span>
+                    <span class="text-[9px] font-bold">السلة</span>
+                </button>
+                <div class="text-left border-r border-gray-700 pr-3 mr-1 hidden md:block">
+                    <p class="text-[9px] text-yellow-500 font-black italic">(Mohamed Nazih)</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="productDetailsModal">
+        <header class="bg-white p-4 flex justify-between items-center sticky top-0 z-[110] border-b">
+            <button onclick="closeProductDetails()" class="text-2xl text-slate-800"><i class="fas fa-arrow-right"></i></button>
+            <h3 class="font-bold text-slate-800">تفاصيل المنتج</h3>
+            <button onclick="openCart()" class="text-xl text-slate-800"><i class="fas fa-shopping-cart"></i></button>
+        </header>
+
+        <div class="product-gallery">
+            <div id="modalImageSlider" class="image-slider"></div>
+        </div>
+
+        <div class="product-info-card">
+            <div class="flex justify-between items-center mb-2">
+                <span id="modalCat" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-bold"></span>
+                <span class="text-gray-400 text-xs font-bold italic">كود: #1393</span>
+            </div>
+            <h2 id="modalName" class="text-xl font-black text-slate-900 mb-4"></h2>
+            <div class="flex items-baseline gap-2">
+                <span id="modalPrice" class="price-tag"></span>
+                <span class="text-emerald-600 font-bold text-sm italic">جنية مصري</span>
+            </div>
+        </div>
+
+        <div id="brandSection" class="product-info-card hidden">
+            <h4 class="font-black text-slate-800 border-b pb-2 mb-3"><i class="fas fa-palette text-blue-600 ml-2"></i>الماركات المتوفرة بالمعرض:</h4>
+            <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+                <div class="bg-slate-50 p-2 rounded border">جوتن - Jotun</div>
+                <div class="bg-slate-50 p-2 rounded border">كابسي - Kapci</div>
+                <div class="bg-slate-50 p-2 rounded border">جي إل سي - GLC</div>
+                <div class="bg-slate-50 p-2 rounded border">سايبس - Scib</div>
+            </div>
+        </div>
+
+        <div class="product-info-card">
+            <h4 class="font-black text-slate-800 border-b pb-2 mb-3"><i class="fas fa-align-left text-blue-600 ml-2"></i>الوصف:</h4>
+            <p id="modalDesc" class="text-slate-600 leading-relaxed text-sm font-bold whitespace-pre-line"></p>
+        </div>
+
+        <div class="product-info-card">
+            <h4 class="font-black text-slate-800 border-b pb-2 mb-3"><i class="fas fa-truck-fast text-orange-500 ml-2"></i>خدمة التوصيل السريع</h4>
+            <div class="space-y-3 text-sm">
+                <p class="font-bold text-green-700 italic">متاح التوصيل لـ: القاهرة، الجيزة، المقطم والمناطق المجاورة</p>
+                <p class="font-black text-blue-600 bg-blue-50 p-2 rounded">نضمن لك سرعة توصيل الطلب فور تأكيده</p>
+                <div class="pt-3 border-t">
+                    <p class="font-black">للتواصل المباشر:</p>
+                    <p class="font-bold">01029190615</p>
+                    <p class="font-bold">01016257300</p>
+                    <p class="font-bold">01120934908</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="h-32"></div>
+        <div class="action-bar">
+            <div class="flex items-center border rounded-xl overflow-hidden bg-gray-50">
+                <button onclick="changeModalQty(-1)" class="px-4 py-2 bg-gray-200 text-xl font-bold">-</button>
+                <span id="modalQty" class="px-6 font-black text-slate-800">1</span>
+                <button onclick="changeModalQty(1)" class="px-4 py-2 bg-gray-200 text-xl font-bold">+</button>
+            </div>
+            <button id="addToCartBtn" class="flex-1 bg-yellow-500 text-black font-black py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                <i class="fas fa-cart-plus"></i> إضافة للسلة
+            </button>
+        </div>
+    </div>
+
+    <div id="customerFormModal">
+        <div class="p-6 bg-black border-b border-yellow-500 flex justify-between items-center sticky top-0 z-[100]">
+            <h2 class="text-xl font-black text-yellow-500 italic">بيانات شحن الطلب</h2>
+            <button onclick="closeCustomerForm()" class="text-white text-2xl">✕</button>
+        </div>
+        <div class="p-8 max-w-md mx-auto space-y-5">
+            <input type="text" id="custName" placeholder="الاسم بالكامل" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white outline-none">
+            <input type="tel" id="custPhone" placeholder="رقم الهاتف" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white outline-none">
+            <textarea id="custAddress" placeholder="العنوان (المنطقة، الشارع، رقم العقار)" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white outline-none h-24"></textarea>
+            <button onclick="saveAndCloseForm()" class="w-full bg-green-600 text-white py-4 rounded-xl font-black text-lg">حفظ البيانات والمتابعة</button>
+        </div>
+    </div>
+
+    <div id="cartModal">
+        <div class="p-6 bg-black border-b border-yellow-500 flex justify-between items-center sticky top-0 z-[100]">
+            <h2 class="text-xl font-black text-yellow-500 italic">سلة المشتريات</h2>
+            <button onclick="closeCart()" class="text-white text-2xl">✕</button>
+        </div>
+        <div id="cartItems" class="p-4 space-y-4 min-h-[50vh]"></div>
+        <div class="p-6 bg-slate-900 border-t border-yellow-500 sticky bottom-0">
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-xl font-bold text-white italic">إجمالي الحساب:</span>
+                <span id="cartTotal" class="text-2xl font-black text-yellow-500">0 ج.م</span>
+            </div>
+            <button onclick="checkDataAndSend()" class="w-full bg-yellow-500 text-black py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-xl">
+                <i class="fas fa-paper-plane"></i> إرسال الطلب للمؤسسة
+            </button>
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 mt-8 min-h-screen">
+        <div class="relative mb-8"><i class="fas fa-search absolute right-4 top-4 text-yellow-500"></i><input type="text" id="searchInput" oninput="handleSearch()" placeholder="ابحث عن أي منتج..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl py-4 pr-12 text-white outline-none focus:border-yellow-500 transition-all"></div>
+        <h2 id="currentCatTitle" class="text-2xl font-black text-white border-r-4 border-yellow-500 pr-3 mb-6 italic text-sm">الكل</h2>
+        <div id="mainGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5 mb-12"></div>
+    </main>
+
+    <footer class="p-10 bg-slate-950 border-t-2 border-yellow-500">
+        <div class="container mx-auto text-right">
+            <h3 class="text-yellow-500 font-black text-lg mb-2 italic underline underline-offset-8">مؤسسة الأخوة</h3>
+            <p class="text-gray-400 font-bold mb-4 italic text-xs leading-relaxed">المقطم - الهضبة الوسطى - شارع مدرسة البارون - أمام مدرسة البارون - القطعة رقم 1393</p>
+            <div class="flex flex-col gap-2 font-black text-gray-300 text-xs italic">
+                <span><i class="fas fa-phone text-green-500"></i> 01029190615</span>
+                <span><i class="fas fa-phone text-green-500"></i> 01016257300</span>
+                <span><i class="fas fa-phone text-blue-400"></i> 01120934908</span>
+            </div>
+            <div class="mt-10 pt-6 border-t border-slate-800 text-center">
+                <p class="text-[10px] text-gray-500 italic">جميع الحقوق محفوظة لصالح (Mohamed Nazih) © 2026</p>
+            </div>
+        </div>
+    </footer>
+
+    <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div id="sidebar" class="p-4">
+        <div class="flex justify-between items-center mb-6 border-b border-yellow-500/30 pb-4 text-yellow-500"><h2 class="text-xl font-black italic text-sm">أقسام المؤسسة</h2><button onclick="toggleSidebar()" class="text-2xl">✕</button></div>
+        <div id="fullNavList" class="space-y-1"></div>
+    </div>
+
+    <div id="adminPanel" class="fixed inset-0 bg-white text-black z-[12000] p-6 overflow-y-auto hidden">
+        <div class="flex justify-between items-center mb-8 bg-blue-800 p-5 rounded-2xl text-white shadow-xl">
+            <h2 id="adminTitle" class="text-xl font-black italic">إضافة منتج جديد</h2>
+            <button onclick="closeAdmin()" class="bg-white text-blue-800 px-6 py-2 rounded-xl font-bold">رجوع</button>
+        </div>
+        <div class="max-w-xl mx-auto space-y-4">
+            <input type="hidden" id="editId">
+            <input type="text" id="pName" placeholder="اسم المنتج / الماركة" class="w-full p-4 border-2 rounded-xl outline-none">
+            <textarea id="pDesc" placeholder="تفاصيل المنتج أو وصف الكرتلة" class="w-full p-4 border-2 rounded-xl h-32 outline-none"></textarea>
+            <input type="number" id="pPrice" placeholder="السعر" class="w-full p-4 border-2 rounded-xl outline-none">
+            <select id="pCat" onchange="checkCatForSub()" class="w-full p-4 border-2 rounded-xl outline-none"></select>
+            <select id="pSubCat" class="w-full p-4 border-2 rounded-xl outline-none hidden"></select>
+            <div class="bg-gray-100 p-4 rounded-xl">
+                <label class="block mb-2 font-bold">الصور (PDF/Image):</label>
+                <input type="file" id="pImgs" multiple accept="image/*,application/pdf" class="w-full outline-none">
+                <p id="editNote" class="text-blue-600 text-[10px] mt-1 hidden">* اترك الصور فارغة للحفاظ على الصور الحالية عند التعديل</p>
+            </div>
+            <button id="mainAdminBtn" onclick="saveToCloud()" class="w-full bg-blue-800 text-white py-5 rounded-xl font-black shadow-lg">حفظ ونشر</button>
+            
+            <hr class="my-8">
+            <h3 class="font-black text-lg mb-4 italic text-blue-800">إدارة المنتجات المضافة (تعديل/حذف):</h3>
+            <div id="adminListContainer" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://viuvjsegouxnipxrqibc.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_BPEG6a2Wl-TfuG3WIxibPA_kI58l-G3';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let products = [], cart = [], adminClicks = 0, currentModalQty = 1;
+        
+        const categories = [
+            {n:'الكل', i:'fa-border-all'}, 
+            {n:'بويات', i:'fa-paint-roller'}, 
+            {n:'ألون كمبيوتر', i:'fa-computer', sub:['Jotun', 'GLC', 'Skip', 'Sipes', 'الجزيرة', 'CMB']},
+            {n:'كرتلات الألوان', i:'fa-palette', sub:['Jotun', 'GLC', 'Skip', 'Sipes', 'الجزيرة', 'CMB']}, 
+            {n:'سباكة', i:'fa-faucet-drip'}, {n:'كهرباء', i:'fa-bolt'}, 
+            {n:'حدايد', i:'fa-hammer'}, {n:'مواد اسمنتيه', i:'fa-layer-group'}, {n:'مواد لاصقه', i:'fa-broom'},
+            {n:'مواد عازله', i:'fa-shield-virus'}, {n:'مواد بناء', i:'fa-mountain-city'}, 
+            {n:'مسامير', i:'fa-screwdriver'}, {n:'اكسسوارات', i:'fa-gem'}, {n:'بضاعه متنوعه', i:'fa-boxes-stacked'}
+        ];
+
+        async function loadData() {
+            const { data } = await client.from('products').select('*');
+            products = data || []; render(); renderAdminList();
+            const saved = JSON.parse(localStorage.getItem('customerInfo') || '{}');
+            if(saved.name) {
+                document.getElementById('custName').value = saved.name;
+                document.getElementById('custPhone').value = saved.phone;
+                document.getElementById('custAddress').value = saved.address;
+            }
+        }
+
+        // وظيفة فحص البيانات قبل الإرسال
+        function checkDataAndSend() {
+            const n = document.getElementById('custName').value;
+            const p = document.getElementById('custPhone').value;
+            const a = document.getElementById('custAddress').value;
+
+            if(!n || !p || !a) {
+                alert("برجاء تسجيل بياناتك لإرسال الطلبية");
+                openCustomerForm();
+            } else {
+                finalizeAndSend();
+            }
+        }
+
+        function saveAndCloseForm() {
+            const n = document.getElementById('custName').value, ph = document.getElementById('custPhone').value, ad = document.getElementById('custAddress').value;
+            if(!n || !ph || !ad) return alert("اكمل البيانات برجاء");
+            localStorage.setItem('customerInfo', JSON.stringify({name: n, phone: ph, address: ad}));
+            closeCustomerForm();
+            alert("تم حفظ البيانات بنجاح");
+        }
+
+        function render(filter = 'الكل', searchStr = '') {
+            const grid = document.getElementById('mainGrid'); grid.innerHTML = "";
+            products.forEach(p => {
+                const isMatch = (filter === 'الكل' || p.cat === filter || p.subCat === filter);
+                if (isMatch && (p.name.toLowerCase().includes(searchStr.toLowerCase()))) {
+                    const img = (p.images && p.images[0]) ? p.images[0] : 'https://via.placeholder.com/300';
+                    const isChart = p.cat === 'كرتلات الألوان';
+                    grid.innerHTML += `
+                        <div class="user-product-card shadow-lg" onclick="openProductDetails('${p.id}')">
+                            <img src="${img}" class="w-full h-44 object-cover ${isChart ? 'no-save' : ''}">
+                            <div class="p-4">
+                                <h3 class="font-bold text-sm text-white truncate italic">${p.name}</h3>
+                                <div class="flex justify-between items-center mt-3">
+                                    <span class="text-yellow-500 font-black text-lg">${isChart ? 'عرض الكرتلة' : p.price + 'ج'}</span>
+                                    <button class="bg-yellow-500 text-black w-8 h-8 rounded-lg flex items-center justify-center">
+                                        <i class="fas ${isChart ? 'fa-eye' : 'fa-plus'} text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+            });
+        }
+
+        function renderAdminList() {
+            const container = document.getElementById('adminListContainer'); container.innerHTML = "";
+            products.forEach(p => {
+                container.innerHTML += `
+                    <div class="admin-item">
+                        <div class="flex items-center gap-3">
+                            <img src="${p.images[0]}" class="w-10 h-10 object-cover rounded">
+                            <span class="text-xs font-bold text-slate-800">${p.name}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editMode('${p.id}')" class="bg-blue-600 text-white p-2 rounded text-xs"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteProduct('${p.id}')" class="bg-red-600 text-white p-2 rounded text-xs"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function editMode(id) {
+            const p = products.find(x => x.id == id);
+            if(!p) return;
+            document.getElementById('editId').value = p.id;
+            document.getElementById('pName').value = p.name;
+            document.getElementById('pDesc').value = p.description;
+            document.getElementById('pPrice').value = p.price;
+            document.getElementById('pCat').value = p.cat;
+            checkCatForSub();
+            if(p.subCat) document.getElementById('pSubCat').value = p.subCat;
+            document.getElementById('adminTitle').innerText = "تعديل المنتج";
+            document.getElementById('mainAdminBtn').innerText = "تحديث البيانات";
+            document.getElementById('editNote').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function deleteProduct(id) {
+            if(confirm("هل أنت متأكد من حذف المنتج نهائياً؟")) {
+                await client.from('products').delete().eq('id', id);
+                loadData();
+            }
+        }
+
+        async function saveToCloud() {
+            const id = document.getElementById('editId').value;
+            const data = {
+                name: document.getElementById('pName').value,
+                description: document.getElementById('pDesc').value,
+                price: document.getElementById('pPrice').value,
+                cat: document.getElementById('pCat').value,
+                subCat: document.getElementById('pSubCat').value
+            };
+            
+            const files = document.getElementById('pImgs').files;
+            if(files.length > 0) {
+                data.images = [];
+                for(let f of files) {
+                    const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(f); });
+                    data.images.push(b64);
+                }
+            }
+
+            if(id) {
+                await client.from('products').update(data).eq('id', id);
+                alert("تم التحديث");
+            } else {
+                await client.from('products').insert([data]);
+                alert("تم الحفظ");
+            }
+            closeAdmin(); loadData();
+        }
+
+        function openProductDetails(id) {
+            const p = products.find(x => x.id == id); if(!p) return;
+            currentModalQty = 1; document.getElementById('modalQty').innerText = 1;
+            document.getElementById('modalName').innerText = p.name;
+            document.getElementById('modalPrice').innerText = p.price;
+            document.getElementById('modalDesc').innerText = p.description || "";
+            document.getElementById('modalCat').innerText = p.cat;
+            document.getElementById('modalImageSlider').innerHTML = (p.images || []).map(img => `<img src="${img}" class="${p.cat === 'كرتلات الألوان' ? 'no-save' : ''}">`).join('');
+            document.getElementById('brandSection').classList.toggle('hidden', !(p.cat === 'ألون كمبيوتر' || p.cat === 'كرتلات الألوان'));
+            document.querySelector('.action-bar').style.display = p.cat === 'كرتلات الألوان' ? 'none' : 'flex';
+            document.getElementById('addToCartBtn').onclick = () => addToCart(p, currentModalQty);
+            document.getElementById('productDetailsModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function addToCart(p, qty) { const exist = cart.find(i => i.id === p.id); if(exist) exist.qty += qty; else cart.push({...p, qty: qty}); updateCartUI(); closeProductDetails(); alert("تمت الإضافة"); }
+        function updateCartUI() { document.getElementById('cartCount').innerText = cart.reduce((a,b) => a + b.qty, 0); const container = document.getElementById('cartItems'); container.innerHTML = ""; let total = 0; cart.forEach(item => { total += (item.price * item.qty); container.innerHTML += `<div class="flex gap-4 bg-slate-800 p-3 rounded-2xl border border-slate-700"><img src="${item.images[0]}" class="w-16 h-16 object-cover rounded-xl"><div class="flex-1"><h4 class="font-bold text-white text-[11px] italic">${item.name}</h4><div class="flex items-center gap-3 mt-2 text-xs"><button onclick="changeQty('${item.id}', -1)" class="bg-slate-700 px-2 rounded">-</button><span>${item.qty}</span><button onclick="changeQty('${item.id}', 1)" class="bg-slate-700 px-2 rounded">+</button><span class="text-yellow-500 mr-auto">${item.price * item.qty}ج</span></div></div></div>`; }); document.getElementById('cartTotal').innerText = total + " ج.م"; }
+        function finalizeAndSend() { const n = document.getElementById('custName').value, ph = document.getElementById('custPhone').value, ad = document.getElementById('custAddress').value; if(!n || !ph || !ad) return alert("اكمل البيانات"); localStorage.setItem('customerInfo', JSON.stringify({name: n, phone: ph, address: ad})); let items = cart.map((i, idx) => `${idx+1}- ${i.name} [الكمية: ${i.qty}]`).join('\n'); let msg = `*طلب جديد*\n*العميل:* ${n}\n*الهاتف:* ${ph}\n*العنوان:* ${ad}\n*المنتجات:*\n${items}`; window.open(`https://wa.me/201029190615?text=${encodeURIComponent(msg)}`); cart = []; updateCartUI(); closeCustomerForm(); closeCart(); }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('sidebarOverlay').classList.toggle('active'); }
+        function selectCat(c) { document.getElementById('currentCatTitle').innerText = c; render(c); }
+        function handleSearch() { render('الكل', document.getElementById('searchInput').value); }
+        function accessAdmin() { adminClicks++; if(adminClicks >= 5) { document.getElementById('adminPanel').classList.remove('hidden'); adminClicks = 0; } }
+        function closeAdmin() { 
+            document.getElementById('adminPanel').classList.add('hidden'); 
+            document.getElementById('editId').value = "";
+            document.getElementById('pName').value = "";
+            document.getElementById('pDesc').value = "";
+            document.getElementById('pPrice').value = "";
+            document.getElementById('adminTitle').innerText = "إضافة منتج جديد";
+            document.getElementById('mainAdminBtn').innerText = "حفظ ونشر";
+            document.getElementById('editNote').classList.add('hidden');
+        }
+        function checkCatForSub() { const cat = document.getElementById('pCat').value; const subBox = document.getElementById('pSubCat'); const found = categories.find(c => c.n === cat); if(found && found.sub) { subBox.classList.remove('hidden'); subBox.innerHTML = found.sub.map(s => `<option value="${s}">${s}</option>`).join(''); } else subBox.classList.add('hidden'); }
+        function buildSidebar() { document.getElementById('fullNavList').innerHTML = categories.map((c, i) => `<div><div class="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl cursor-pointer hover:bg-yellow-500 mb-1" onclick="${c.sub ? `toggleSub(${i})` : `selectCat('${c.n}'); toggleSidebar()`}"><div class="flex items-center gap-3"><i class="fas ${c.i} text-yellow-500 w-5"></i><span class="font-bold text-[13px] text-white italic">${c.n}</span></div>${c.sub ? '<i class="fas fa-chevron-down text-[10px]"></i>' : ''}</div>${c.sub ? `<div id="sub-${i}" class="sub-menu mr-4 border-r-2 border-yellow-500">${c.sub.map(s => `<div class="p-3 text-xs text-gray-300 font-bold" onclick="selectCat('${s}'); toggleSidebar()">${s}</div>`).join('')}</div>` : ''}</div>`).join(''); }
+        function toggleSub(i) { const el = document.getElementById(`sub-${i}`); document.querySelectorAll('.sub-menu').forEach(m => { if(m !== el) m.classList.remove('active'); }); el.classList.toggle('active'); }
+        function changeModalQty(v) { currentModalQty += v; if(currentModalQty < 1) currentModalQty = 1; document.getElementById('modalQty').innerText = currentModalQty; }
+        function changeQty(id, v) { const i = cart.find(x=>x.id===id); if(i){i.qty+=v; if(i.qty<1) cart=cart.filter(x=>x.id!==id); updateCartUI();} }
+        function openCart() { document.getElementById('cartModal').style.display = 'block'; }
+        function closeCart() { document.getElementById('cartModal').style.display = 'none'; document.body.style.overflow = 'auto'; }
+        function openCustomerForm() { document.getElementById('customerFormModal').style.display = 'block'; }
+        function closeCustomerForm() { document.getElementById('customerFormModal').style.display = 'none'; }
+        function closeProductDetails() { document.getElementById('productDetailsModal').style.display = 'none'; document.body.style.overflow = 'auto'; }
+
+        document.getElementById('pCat').innerHTML = categories.map(c => `<option value="${c.n}">${c.n}</option>`).join('');
+        buildSidebar(); loadData();
+    </script>
+</body>
+</html>
